@@ -1,6 +1,6 @@
 import streamlit as st
 from faq import ingest_faq_data, faq_chain
-#from sql import sql_chain
+from sql import sql_chain
 from pathlib import Path
 from router import router
 
@@ -12,12 +12,14 @@ def ask(query):
     route = router(query).name
     if route == 'faq':
         return faq_chain(query)
-    #elif route == 'sql':
+    elif route == 'sql':
         return sql_chain(query)
     else:
         return f"Route {route} not implemented yet"
+    
 
-st.title("E-commerce Bot")
+    
+st.title("E-Commerce Bot")
 
 query = st.chat_input("Write your query")
 
