@@ -1,4 +1,4 @@
-rom groq import Groq
+from groq import Groq
 import os
 import re
 import sqlite3
