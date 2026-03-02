@@ -1,4 +1,4 @@
-rom groq import Groq
+from groq import Groq
 import os
 import re
 import sqlite3
@@ -6,12 +6,14 @@ import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
 from pandas import DataFrame
+
 load_dotenv()
 
-GROQ_MODEL = os.getenv("GROQ_MODEL")
-db_path = Path(__file__).parent / "db.sqlite"
-client_sql = Groq()
+GROQ_MODEL = os.getenv('GROQ_MODEL')
 
+db_path = Path(__file__).parent / "db.sqlite"
+
+client_sql = Groq()
 
 sql_prompt = """You are an expert in understanding the database schema and generating SQL queries for a natural language question asked
 pertaining to the data you have. The schema is provided in the schema tags. 
@@ -47,23 +49,34 @@ For example:
 
 """
 
+
 def generate_sql_query(question):
     chat_completion = client_sql.chat.completions.create(
         messages=[
             {
                 "role": "system",
-                "content": sql_prompt
+                "content": sql_prompt,
             },
             {
                 "role": "user",
-                "content": question
+                "content": question,
             }
         ],
-        model=os.environ.get("GROQ_MODEL"),
+        model=os.environ['GROQ_MODEL'],
         temperature=0.2,
         max_tokens=1024
     )
+
     return chat_completion.choices[0].message.content
+
+
+
+def run_query(query):
+    if query.strip().upper().startswith('SELECT'):
+        with sqlite3.connect(db_path) as conn:
+            df = pd.read_sql_query(query, conn)
+            return df
+
 
 def data_comprehension(question, context):
     chat_completion = client_sql.chat.completions.create(
@@ -85,12 +98,6 @@ def data_comprehension(question, context):
     return chat_completion.choices[0].message.content
 
 
-def run_query(query):
-    if query.strip().upper().startswith("SELECT"):
-        with sqlite3.connect('db.sqlite') as conn:
-            df =pd.read_sql_query(query, conn)
-            return df
-    
 
 def sql_chain(question):
     sql_query = generate_sql_query(question)
@@ -121,4 +128,3 @@ if __name__ == "__main__":
     # question = "sfsdfsddsfsf"
     answer = sql_chain(question)
     print(answer)
-
