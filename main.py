@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from faq import (
     ingest_faq_data, 
     faq_chain, 
@@ -13,6 +14,8 @@ from router import (
     encoder
 )
 
+api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+model = st.secrets.get("GROQ_MODEL") or os.environ.get("GROQ_MODEL", "llama3-8b-8192")
 
 @st.cache_resource
 def initialize():
