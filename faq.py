@@ -27,24 +27,22 @@ ef = embedding_functions.SentenceTransformerEmbeddingFunction(
         )
 
 def ingest_faq_data(path: str):
-    if collection_name_faq not in [c.name for c in chroma_client.list_collections()]:
-        print("Ingesting FAQ data into Chromadb...")
-        collection = chroma_client.get_or_create_collection(
-            name=collection_name_faq,
-            embedding_function=ef
-        )
-        df = pandas.read_csv(path)
-        docs = df['question'].to_list()
-        metadata = [{'answer': ans} for ans in df['answer'].to_list()]
-        ids = [f"id_{i}" for i in range(len(docs))]
-        collection.add(
-            documents=docs,
-            metadatas=metadata,
-            ids=ids
-        )
-        print(f"FAQ Data successfully ingested into Chroma collection: {collection_name_faq}")
-    else:
-        print(f"Collection: {collection_name_faq} already exist")
+    print("Ingesting FAQ data into Chromadb...")
+    collection = chroma_client.get_or_create_collection(
+        name=collection_name_faq,
+        embedding_function=ef
+    )
+    df = pandas.read_csv(path)
+    docs = df['question'].to_list()
+    metadata = [{'answer': ans} for ans in df['answer'].to_list()]
+    ids = [f"id_{i}" for i in range(len(docs))]
+    # upsert instead of add — safe to call every time, no duplicates
+    collection.upsert(
+        documents=docs,
+        metadatas=metadata,
+        ids=ids
+    )
+    print(f"FAQ Data successfully ingested into Chroma collection: {collection_name_faq}")
 
 def get_relevant_qa(query):
     collection = chroma_client.get_or_create_collection(
@@ -89,6 +87,5 @@ if __name__ == '__main__':
     ingest_faq_data(faqs_path)
     query = "what's your policy on defective products?"
     query = "Do you take cash as a payment option?"
-    #result = get_relevant_qa(query)
     answer = faq_chain(query)
     print(answer)
