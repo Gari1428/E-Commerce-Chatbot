@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 import chromadb
 from chromadb.utils import embedding_functions
 from groq import Groq
@@ -16,19 +15,24 @@ except Exception:
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
     GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama3-8b-8192")
 
-
 faqs_path = "resources/faqs.csv"
-chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
-groq_client = Groq(api_key=GROQ_API_KEY)
 collection_name_faq = 'faqs'
 
 ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name='sentence-transformers/all-MiniLM-L6-v2'
-        )
+    model_name='sentence-transformers/all-MiniLM-L6-v2'
+)
+
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+# Global collection — set once by ingest_faq_data, reused by get_relevant_qa
+chroma_collection = None
 
 def ingest_faq_data(path: str):
-    print("Ingesting FAQ data into Chromadb...")
-    collection = chroma_client.get_or_create_collection(
+    global chroma_collection
+    print("Initializing Chroma and ingesting FAQ data...")
+    # EphemeralClient = pure in-memory, works reliably on both local and Streamlit Cloud
+    chroma_client = chromadb.EphemeralClient()
+    chroma_collection = chroma_client.get_or_create_collection(
         name=collection_name_faq,
         embedding_function=ef
     )
@@ -36,23 +40,14 @@ def ingest_faq_data(path: str):
     docs = df['question'].to_list()
     metadata = [{'answer': ans} for ans in df['answer'].to_list()]
     ids = [f"id_{i}" for i in range(len(docs))]
-    # upsert instead of add — safe to call every time, no duplicates
-    collection.upsert(
-        documents=docs,
-        metadatas=metadata,
-        ids=ids
-    )
-    print(f"FAQ Data successfully ingested into Chroma collection: {collection_name_faq}")
+    chroma_collection.upsert(documents=docs, metadatas=metadata, ids=ids)
+    print(f"FAQ ingested. Total docs: {chroma_collection.count()}")
 
 def get_relevant_qa(query):
-    collection = chroma_client.get_or_create_collection(
-        name=collection_name_faq,
-        embedding_function=ef
-    )
-    result = collection.query(
-        query_texts=[query],
-        n_results=2
-    )
+    global chroma_collection
+    if chroma_collection is None:
+        raise ValueError("FAQ data not ingested yet. Call ingest_faq_data() first.")
+    result = chroma_collection.query(query_texts=[query], n_results=2)
     return result
 
 def generate_answer(query, context):
@@ -65,27 +60,19 @@ def generate_answer(query, context):
     '''
     chat_completion = groq_client.chat.completions.create(
         model=GROQ_MODEL,
-        messages=[
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ]
+        messages=[{'role': 'user', 'content': prompt}]
     )
     return chat_completion.choices[0].message.content
 
-
 def faq_chain(query):
     result = get_relevant_qa(query)
+    print("RAW RESULT:", result)
     context = "".join([r.get('answer') for r in result['metadatas'][0]])
     print("Context:", context)
     answer = generate_answer(query, context)
     return answer
 
-     
 if __name__ == '__main__':
     ingest_faq_data(faqs_path)
-    query = "what's your policy on defective products?"
-    query = "Do you take cash as a payment option?"
-    answer = faq_chain(query)
+    answer = faq_chain("What's the return policy?")
     print(answer)
