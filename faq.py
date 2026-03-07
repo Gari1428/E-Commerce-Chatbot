@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 import chromadb
@@ -9,10 +8,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+try:
+    import streamlit as st
+    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+    GROQ_MODEL = st.secrets.get("GROQ_MODEL") or os.environ.get("GROQ_MODEL", "llama3-8b-8192")
+except Exception:
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+    GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama3-8b-8192")
 
-faqs_path = Path(__file__).parent / "resources" / "faqs.csv"
-chroma_client = chromadb.Client()
-groq_client = Groq()
+
+faqs_path = "resources/faqs.csv"
+chroma_client = chromadb.PersistentClient(path="/tmp/chroma")
+groq_client = Groq(api_key=GROQ_API_KEY)
 collection_name_faq = 'faqs'
 
 ef = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -22,7 +29,7 @@ ef = embedding_functions.SentenceTransformerEmbeddingFunction(
 def ingest_faq_data(path: str):
     if collection_name_faq not in [c.name for c in chroma_client.list_collections()]:
         print("Ingesting FAQ data into Chromadb...")
-        collection = chroma_client.create_collection(
+        collection = chroma_client.get_or_create_collection(
             name=collection_name_faq,
             embedding_function=ef
         )
@@ -40,7 +47,7 @@ def ingest_faq_data(path: str):
         print(f"Collection: {collection_name_faq} already exist")
 
 def get_relevant_qa(query):
-    collection = chroma_client.get_collection(
+    collection = chroma_client.get_or_create_collection(
         name=collection_name_faq,
         embedding_function=ef
     )
@@ -59,7 +66,7 @@ def generate_answer(query, context):
     QUESTION: {query}
     '''
     chat_completion = groq_client.chat.completions.create(
-        model=os.environ['GROQ_MODEL'],
+        model=GROQ_MODEL,
         messages=[
             {
                 'role': 'user',
