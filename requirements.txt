@@ -5,4 +5,8 @@ python-dotenv
 groq
 semantic-router[local]
 chromadb==0.4.24
+pydantic==1.10.21
 sentence_transformers
+langchain
+langchain-groq
+langchain-community
