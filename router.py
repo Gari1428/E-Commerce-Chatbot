@@ -1,7 +1,7 @@
 from semantic_router import Route
 from semantic_router.routers import SemanticRouter
-
 from semantic_router.encoders import HuggingFaceEncoder
+from semantic_router.index import LocalIndex
 
 # Encoder
 encoder = HuggingFaceEncoder(
@@ -17,6 +17,9 @@ faq = Route(
         "How can I track my order?",
         "What payment methods are accepted?",
         "How long does it take to process a refund?",
+        "What happens if I receive a defective product?",
+        "What is your policy on damaged or faulty items?",
+        "Can I return a broken or damaged product?",
     ],
 )
 
@@ -32,14 +35,20 @@ sql = Route(
     ],
 )
 
-# Correct router for your version
-router = SemanticRouter(
-    routes=[faq, sql],
-    encoder=encoder,
-    auto_sync="local"
-)
+
+def build_router():
+    index = LocalIndex()
+    _router = SemanticRouter(
+        routes=[faq, sql],
+        encoder=encoder,
+        index=index,
+    )
+    # Force-add routes so the index is populated and marked ready
+    _router.add(routes=[faq, sql])
+    return _router
 
 
 if __name__ == "__main__":
+    router = build_router()
     print(router("What is your policy on defective product?").name)
-    print(router("Pink Puma shoes in price range 5000 to 1000").name)
+    print(router("Pink Puma shoes in price range 5000 to 10000").name)
