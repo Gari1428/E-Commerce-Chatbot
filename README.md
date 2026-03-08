@@ -59,7 +59,7 @@ The SQLite database contains a `product` table with the following fields:
 ## Setup & Installation
 ## 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/ecommerce-bot.git
+git clone https://github.com/Gari1428/E-Commerce-Chatbot
 cd ecommerce-bot
 ```
 
