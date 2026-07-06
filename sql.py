@@ -41,6 +41,10 @@ So, make sure to use %LIKE% to find the brand in condition. Never use "ILIKE".
 Create a single SQL query for the question provided. 
 The query should have all the fields in SELECT clause (i.e. SELECT *)
 
+Unless the question explicitly asks for a specific number of results, always add "LIMIT 15"
+at the end of the query so the result set stays small. If the question asks for more than 15
+results, cap it at 15 anyway.
+
 Just the SQL query is needed, nothing more. Always provide the SQL in between the <SQL></SQL> tags."""
 
 
@@ -97,8 +101,21 @@ def sql_chain(question):
     if response is None:
         return "Sorry, there was a problem executing SQL query"
 
+    if response.empty:
+        return "Sorry, I couldn't find any products matching your query."
+
+    # Safety net: even if the LLM ignores the LIMIT instruction, cap rows here
+    # so we never blow past the Groq TPM limit on the comprehension call.
+    MAX_ROWS = 15
+    truncated = len(response) > MAX_ROWS
+    response = response.head(MAX_ROWS)
+
     context = response.to_dict(orient='records')
     answer = data_comprehension(question, context)
+
+    if truncated:
+        answer += "\n\n(Showing top 15 matching results.)"
+
     return answer
 
 if __name__ == "__main__":
