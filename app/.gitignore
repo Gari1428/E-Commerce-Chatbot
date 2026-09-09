@@ -2,4 +2,4 @@
 .DS_Store
 __pycache__/
 eenv/
-**/secrets.toml
+.streamlit/secrets.toml
